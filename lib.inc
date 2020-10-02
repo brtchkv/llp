@@ -8,44 +8,43 @@ section	.text
 string_length:
 	xor rax,rax
 	.loop:
-		cmp byte [rdi+rax], 0	
+		cmp byte [rdi+rax], 0 ;проверка строки на наличие ненулевых символов
 		je .end	
-		inc	rax
+		inc rax ;инкрементирование, если ненулевой символ
 		jmp .loop
 	.end:		
 		ret
 
 print_string:
-	call string_length
-	
-	mov	rdx,rax
+	call string_length 
+	mov	rdx,rax ;задаем размер выводимой строки
 	mov	rsi,rdi
-	mov	rax,1
-	mov	rdi,1
+	mov	rax,1 ;системный вывод
+	mov	rdi,1 ;дескриптор stdout
 	syscall
 	xor	rax,rax
 	ret
 	
 print_newline:
-	mov rax,1
-   	mov rdi,1
-   	mov rsi,10
-   	mov rdx,1
+	mov rax,1 ;системный вызов
+   	mov rdi,1 ;дескриптор вывода
+   	mov rsi,10 ;записываем символ новой строки
+   	mov rdx,1 ;размер выводимой строки
    	syscall
    	xor	rax,rax
 	ret
 	
 string_copy:
 	xor	r9,r9
-	mov	rcx,rdx
-	call	string_length
-	cmp	rax,rdx
+	mov	rcx,rdx ;записываем строку в ячейку для циклов
+	call	string_length 
+	cmp	rax,rdx ;проверяем, что размер буфера не меньше размера строки
 	jg	.reset
 	.loop:
-		mov	r9b,byte[rdi+rcx]
+		mov	r9b,byte[rdi+rcx] ;записываем байт строки в байтовую строку
 		mov	byte[rsi+rcx],	r9b
-		dec	rcx
-		cmp	rcx,-1
+		dec	rcx ;декрементируем размер строки
+		cmp	rcx,-1 
 		je	.end
 		jne	.loop
 	.reset:
@@ -91,7 +90,7 @@ print_int:
 	test	rdi,rdi
 	jns	.print	;print number if positive, else -- move forward
 	push	rdi	;saving a number to print a sign
-	mov	rdi,'-'
+	mov	rdi,'-' 
 	call	print_char
 	pop	rdi
 	neg	rdi	;make it a positive to print a module
