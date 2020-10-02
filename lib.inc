@@ -2,8 +2,6 @@ global	_start
 
 section	.data
 
-newline_char: db 10
-
 section	.text
 
 
@@ -31,7 +29,7 @@ print_string:
 print_newline:
 	mov rax,1
    	mov rdi,1
-   	mov rsi,newline_char
+   	mov rsi,10
    	mov rdx,1
    	syscall
    	xor	rax,rax
