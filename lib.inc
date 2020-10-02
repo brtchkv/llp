@@ -69,15 +69,15 @@ print_char:
 
 print_uint:
 	push	rbp
-	mov 	rbp,rsp ;topmost element adress
+	mov 	rbp,rsp
 	mov 	rax,rdi
-	mov 	rdi,10 ;base of decimal notation
-	sub 	rsp,0x64 ;creating a buffer?
+	mov 	rdi,10
+	sub 	rsp,0x64
 	dec 	rbp
 	.loop:
 		xor 	rdx,rdx
-		div 	rdi ;get last number in AH?
-		add 	rdx,'0' ;convert to string  
+		div 	rdi 
+		add 	rdx,'0' 
 		dec 	rbp	
 		mov 	byte[rbp],dl
 		test 	rax,rax
