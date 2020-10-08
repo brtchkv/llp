@@ -1,12 +1,14 @@
 section .text
 
 string_length:
-    mov rax, -1			; string length
-	.loop:
-		inc rax
-		cmp byte[rdi+rax], 0
-		jnz .loop
-    ret
+    xor rax,rax
+    .loop:
+	cmp byte [rdi+rax], 0 
+	je .end	
+	inc rax 
+	jmp .loop
+    .end:		
+	ret
 
 print_string:
     call string_length
