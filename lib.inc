@@ -1,135 +1,138 @@
-global	_start
-
-section	.data
-
-section	.text
-
+section .text
 
 string_length:
-	xor rax,rax
+    mov rax, -1			; string length
 	.loop:
-		cmp byte [rdi+rax], 0 ;проверка строки на наличие ненулевых символов
-		je .end	
-		inc rax ;инкрементирование, если ненулевой символ
-		jmp .loop
-	.end:		
-		ret
+		inc rax
+		cmp byte[rdi+rax], 0
+		jnz .loop
+    ret
 
 print_string:
-	call string_length 
-	mov	rdx,rax ;задаем размер выводимой строки
-	mov	rsi,rdi
-	mov	rax,1 ;системный вывод
-	mov	rdi,1 ;дескриптор stdout
+    call string_length
+	mov rsi, rdi		; pointer to string
+	mov rdx, rax		; string length
+	mov rax, 1			; sys_write
+	mov rdi, 1			; stdout
 	syscall
-	xor	rax,rax
-	ret
-	
+    ret
+
 print_newline:
-	mov rax,1 ;системный вызов
-   	mov rdi,1 ;дескриптор вывода
-   	mov rsi,10 ;записываем символ новой строки
-   	mov rdx,1 ;размер выводимой строки
-   	syscall
-   	xor	rax,rax
-	ret
-	
-string_copy:
-	xor	r9,r9
-	mov	rcx,rdx ;записываем строку в ячейку для циклов
-	call	string_length 
-	cmp	rax,rdx ;проверяем, что размер буфера не меньше размера строки
-	jg	.reset
-	.loop:
-		mov	r9b,byte[rdi+rcx] ;записываем байт строки в байтовую строку
-		mov	byte[rsi+rcx],	r9b
-		dec	rcx ;декрементируем размер строки
-		cmp	rcx,-1 
-		je	.end
-		jne	.loop
-	.reset:
-		mov	rax,0
-		jmp	.end
-	.end:
-		ret
+	mov rdi, 10
 
-print_char:
-	push	rdi
-	mov	rsi,rsp
-	mov	rax,1
-	mov	rdx,1
-	mov	rdi,1
+print_char:				;
+    mov rax, 1			; sys_write
+	push rdi			; pushing rdi(char) to memory for pointer
+	mov rsi, rsp		; pointer to char
+	mov rdi, 1			; stdout
+	mov rdx, 1			; length=1 
 	syscall
-	pop	rdi
-	xor	rax,rax
-	ret
-
-print_uint:
-	push	rbp
-	mov 	rbp,rsp
-	mov 	rax,rdi
-	mov 	rdi,10
-	sub 	rsp,0x64
-	dec 	rbp
-	.loop:
-		xor 	rdx,rdx
-		div 	rdi 
-		add 	rdx,'0' 
-		dec 	rbp	
-		mov 	byte[rbp],dl
-		test 	rax,rax
-		jnz 	.loop
-	mov rdi,rbp
-	call print_string
-	add rsp,0x64
-	pop rbp
-	xor rax,rax
-	ret
+	pop rdi				; to fix rsp
+    ret
 
 print_int:
-	test	rdi,rdi
-	jns	.print	;print number if positive, else -- move forward
-	push	rdi	;saving a number to print a sign
-	mov	rdi,'-' 
-	call	print_char
-	pop	rdi
-	neg	rdi	;make it a positive to print a module
-	.print:
-		call	print_uint
-	xor	rax,rax
-	ret
-	
+	cmp rdi, 0					; check if < 0
+	jns print_uint
+    xor rdi, -1					; make uint
+	inc rdi						;
+	push rdi
+	mov rdi, '-'				; print '-'
+	call print_char				;
+	pop rdi
+
+print_uint:
+	mov rax, rdi
+    mov r8, 10					; for div
+	times 11 push word 0		; push 22 bytes (for 20 symb + '0x00')
+	mov r9, rsp					; buffer for rsp
+	add rsp, 21					; to last stack mem cell
+	mov byte [rsp], 0			; end of the string
+	.loop:
+		xor rdx, rdx			; RDX:RAX when div
+		dec rsp
+		div r8
+		add rdx, '0'			; RDX has remainder
+		mov byte [rsp], dl		; byte of RDX
+		test rax, rax
+		jnz .loop
+	mov rdi, rsp				; pointer to string
+	call print_string
+	mov rsp, r9					
+	add rsp, 22					; fix rsp
+    ret
+
+string_equals:
+	push rdi				; saving rdi and rsi
+	push rsi				; 
+	call string_length
+	pop rsi
+	pop rdi
+	mov r8, rax				; r8 - length of 1 string
+	mov rax, rdi
+	mov rdi, rsi
+	mov rsi, rax
+	push rdi				; saving rdi, rsi and r8
+	push rsi				;
+	push r8					;
+	call string_length
+	pop r8
+	pop rsi
+	pop rdi
+	mov rcx, rax			; rcx - length of 2 string
+	xor rax, rax
+	cmp r8, rcx				; if r8!=rcx |=> exit
+	jnz .exit
+	test rcx, rcx			; if r8=rcx=0 |=> return 1
+	jz .nullstr
+	.loop:
+		dec rcx
+		mov r9b, byte[rdi+rcx]
+		cmp r9b, byte[rsi+rcx]
+		jnz .exit			; if != |=> return 0
+		test rcx, rcx
+		jnz .loop
+	.nullstr:
+	inc rax
+	.exit:
+    ret
+
 read_char:
-	xor	rax,rax
-	push	rax
-	mov	rdx,1
-	mov	rsi,rsp
-	mov	rdi,0
+    xor rax, rax
+	push rax
+	mov rdi, 0				; sys_read
+	mov rsi, rsp			; pointer
+	mov rdx, 1				; size
 	syscall
-	pop	rax
-	ret
+	mov rax, [rsp]			
+	add rsp, 8				; fix rsp
+    ret 
+
+section .data
+word_buffer: times 256 db 0
+
+section .text
 
 read_word:
 	xor rax, rax
-	push r10
-	push r9
-	xor r10, r10
-	mov r9, rsi
+	push r10			; save callee registers
+	push r9 			
+	xor r10, r10	
+	mov r9, rsi			
 	.loop:
-		push rdi
-		call read_char
+		push rdi		
+		call read_char		
 		pop rdi
 		cmp al, 9
 		jz .loop
-		cmp al, 32
+		cmp al, 32		; skip until first letter
 		jz .loop
-	.loop2:
+	.loop2:				; read until 'space' or lower
 		mov byte[rdi + r10], al
-		cmp al, 0
+		cmp al, 0		; check for null-pointer
 		jz .end
-		cmp al, 32
+		cmp al, 32		; spaces
 		jz .end
-		cmp al, 9
+		cmp al, 9		; tabs
 		jz .end
 		inc r10
 		cmp r10, r9
@@ -151,80 +154,57 @@ read_word:
 		pop r9
 		pop r10
 		ret
-		
 
+; rdi points to a string
+; returns rax: number, rdx : length
 parse_uint:
-	xor	rax,rax
-	push	rbx
-	call	string_length
-	mov	rcx,rax
-	xor	rax,rax
-	xor	rdx,rdx
+	xor rdx, rdx			; RDX:RAX
+	xor rax, rax			; RDX:RAX
+	xor rcx, rcx			; Counter
+	xor r11, r11			; Buffer
+	mov r8, '0'
+	mov r9, '9'
+	mov r10, 10				; for mul
 	.loop:
-		xor	rbx,rbx
-		mov	bl,byte[rdi+rdx]
-		cmp	bl,'0'
-		jb	.end
-		cmp	bl,'9'
-		ja	.end
-		sub	bl,'0'
-		imul	rax,10
-		add	rax,rbx
-		inc	rdx
-		dec	rcx
-		jnz	.loop
-	.end:
-		pop	rbx
-		ret
-parse_int:
-	xor	rax,rax
-	push	r9
-	call	string_length
-	mov	rcx,rax
-	xor	rax,rax
-	xor	rdx,rdx
-	mov	rsi,rdi
-	xor	r9b,r9b
-	mov	r9b,byte[rsi+rdx]
-	cmp	r9b,'-'
-	je	.signed
-	pop	r9
-	jmp	parse_uint
-	.signed:
-		inc	rdi
-		call	parse_uint
-		neg	rax
-		inc	rdx
-		pop	r9
-		ret
-
-string_equals:
-	xor rax, rax
-	push rbx
-	call string_length
-	mov rcx, rax
-	.loop:
-		mov dl, byte[rdi+rcx]
-		mov bl, byte[rsi+rcx]
-		cmp dl, bl
-		jnz .not_equal
-		cmp bl, 0
-		jz .equal
-		dec rcx
+		mov r11b, byte[rdi+rcx]
+		cmp r11b, r8b		; (char)-'0'
+		js .break
+		cmp r9b, r11b		; '9'-(char)
+		js .break
+		sub r11, r8			; char to uint
+		mul r10				;
+		add rax, r11		;
+		inc rcx				; length+1
+		test rax, rax		; if zero |=> break
 		jnz .loop
-	.equal:
-		pop rbx
-		mov rax, 1
-		ret
-	.not_equal:
-		pop rbx
-		mov rax, 0
-		ret
-	
-	
-	
-	
-	
-	
-	
-	
+	.break:
+	mov rdx, rcx
+    ret
+
+; rdi points to a string
+; returns rax: number, rdx : length
+parse_int:
+	push r12
+	xor r12, r12			; buffer for '-' or...
+	cmp byte[rdi], '-'
+	jnz .plus				; if not '-' go parse_uint
+	inc rdi					; rdi+1 for uint
+	mov r12, -1
+	.plus:
+	call parse_uint			; same as uint if plus
+	xor rax, r12
+	sub rax, r12
+	sub rdx, r12
+	pop r12
+	ret 
+
+string_copy:
+	.loop:
+		xor rax, rax
+		mov al, byte[rdi]
+		mov byte[rsi], al
+		inc rdi
+		inc rsi
+		test rax, rax
+		jnz .loop
+	ret
